@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <title>Live Exam</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: auto; }
+        #timer { font-size: 20px; color: white; background: red; padding: 10px; text-align: center; position: sticky; top: 0; border-radius: 5px; font-weight: bold;}
+        .question { background: #f9f9f9; padding: 15px; margin-bottom: 15px; border-radius: 5px; border-left: 4px solid #007bff; }
+        .submit-btn { background: #007bff; color: white; padding: 10px 20px; border: none; font-size: 16px; cursor: pointer; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+    <div id="exam-section">
+        <div id="timer">সময় বাকি: <span id="time">{{ time_limit }}:00</span></div>
+        <h2 style="text-align: center;">আপনার পরীক্ষা চলছে...</h2>
+
+        <form id="quizForm">
+            {% for q in questions %}
+            <div class="question">
+                <p><strong>{{ loop.index }}. {{ q.text }}</strong></p>
+                <label><input type="radio" name="q{{ loop.index }}" value="{{ q.opt_a }}"> {{ q.opt_a }}</label><br>
+                <label><input type="radio" name="q{{ loop.index }}" value="{{ q.opt_b }}"> {{ q.opt_b }}</label><br>
+                <label><input type="radio" name="q{{ loop.index }}" value="{{ q.opt_c }}"> {{ q.opt_c }}</label><br>
+                <label><input type="radio" name="q{{ loop.index }}" value="{{ q.opt_d }}"> {{ q.opt_d }}</label><br>
+            </div>
+            {% endfor %}
+            <button type="button" class="submit-btn" onclick="submitExam()">খাতা জমা দিন</button>
+        </form>
+    </div>
+
+    <div id="result-section" style="display:none; text-align: center; margin-top: 50px;">
+        <h2 style="color: green;">পরীক্ষা শেষ!</h2>
+        <h3 id="scoreText" style="font-size: 24px;"></h3>
+        <br>
+        <a href="/user_dash" style="background: #333; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">ড্যাশবোর্ডে ফিরে যান</a>
+    </div>
+
+    <script>
+        // ব্যাকএন্ড থেকে আসা সঠিক উত্তরগুলো জাভাস্ক্রিপ্টে সেভ করে রাখা হচ্ছে (ইউজার সহজে বুঝতে পারবে না)
+        const answers = {
+            {% for q in questions %}
+            "q{{ loop.index }}": "{{ q.ans }}"{% if not loop.last %},{% endif %}
+            {% endfor %}
+        };
+
+        let timeLimit = {{ time_limit }} * 60; // সেকেন্ডে কনভার্ট করা হলো
+        let timerDisplay = document.getElementById('time');
+        
+        let timerInterval = setInterval(function() {
+            let min = Math.floor(timeLimit / 60);
+            let sec = timeLimit % 60;
+            sec = sec < 10 ? '0' + sec : sec;
+            timerDisplay.textContent = min + ":" + sec;
+
+            if (--timeLimit < 0) {
+                clearInterval(timerInterval);
+                alert("সময় শেষ! স্বয়ংক্রিয়ভাবে খাতা জমা নেওয়া হচ্ছে।");
+                submitExam();
+            }
+        }, 1000);
+
+        function submitExam() {
+            clearInterval(timerInterval);
+            let score = 0;
+            let total = Object.keys(answers).length;
+
+            for (let key in answers) {
+                let selected = document.querySelector(`input[name="${key}"]:checked`);
+                // চেক করা হচ্ছে ইউজারের উত্তর ডাটাবেসের উত্তরের সাথে মিলছে কিনা
+                if (selected && selected.value === answers[key]) {
+                    score++;
+                }
+            }
+
+            document.getElementById('exam-section').style.display = 'none';
+            document.getElementById('result-section').style.display = 'block';
+            document.getElementById('scoreText').innerText = `আপনার প্রাপ্ত নম্বর: ${score} / ${total}`;
+        }
+    </script>
+</body>
+</html>
