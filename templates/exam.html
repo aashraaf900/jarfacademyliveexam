@@ -5,16 +5,18 @@
     <title>Live Exam</title>
     <style>
         body { font-family: Arial, sans-serif; padding: 20px; max-width: 600px; margin: auto; }
-        #timer { font-size: 20px; color: white; background: red; padding: 10px; text-align: center; position: sticky; top: 0; border-radius: 5px; font-weight: bold;}
+        #timer { font-size: 20px; color: white; background: red; padding: 10px; text-align: center; position: sticky; top: 0; border-radius: 5px; font-weight: bold; z-index: 100;}
         .question { background: #f9f9f9; padding: 15px; margin-bottom: 15px; border-radius: 5px; border-left: 4px solid #007bff; }
-        .submit-btn { background: #007bff; color: white; padding: 10px 20px; border: none; font-size: 16px; cursor: pointer; border-radius: 5px; }
+        .submit-btn { background: #007bff; color: white; padding: 10px 20px; border: none; font-size: 16px; cursor: pointer; border-radius: 5px; width: 100%; font-weight: bold;}
+        .submit-btn:hover { background: #0056b3; }
+        .review-box { border: 1px solid #ddd; padding: 15px; margin-bottom: 15px; border-radius: 5px; text-align: left; background: #fff; }
     </style>
 </head>
-<body>
+<body style="background-color: #f4f7f6;">
 
     <div id="exam-section">
         <div id="timer">সময় বাকি: <span id="time">{{ time_limit }}:00</span></div>
-        <h2 style="text-align: center;">আপনার পরীক্ষা চলছে...</h2>
+        <h2 style="text-align: center; color: #333;">আপনার পরীক্ষা চলছে...</h2>
 
         <form id="quizForm">
             {% for q in questions %}
@@ -30,22 +32,33 @@
         </form>
     </div>
 
-    <div id="result-section" style="display:none; text-align: center; margin-top: 50px;">
+    <div id="result-section" style="display:none; text-align: center; margin-top: 20px;">
         <h2 style="color: green;">পরীক্ষা শেষ!</h2>
-        <h3 id="scoreText" style="font-size: 24px;"></h3>
-        <br>
-        <a href="/user_dash" style="background: #333; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">ড্যাশবোর্ডে ফিরে যান</a>
+        <div style="background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+            <h3 id="scoreText" style="font-size: 24px; color: #007bff; margin: 0;"></h3>
+        </div>
+        
+        <h3 style="text-align: left; margin-top: 30px; color: #333;">প্রশ্নের বিস্তারিত ফলাফল:</h3>
+        
+        <div id="review-section"></div>
+        
+        <br><br>
+        <a href="/user_dash" style="background: #333; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block; margin-bottom: 40px;">ড্যাশবোর্ডে ফিরে যান</a>
     </div>
 
     <script>
-        // ব্যাকএন্ড থেকে আসা সঠিক উত্তরগুলো জাভাস্ক্রিপ্টে সেভ করে রাখা হচ্ছে (ইউজার সহজে বুঝতে পারবে না)
-        const answers = {
+        // ব্যাকএন্ড থেকে আসা প্রশ্ন এবং সঠিক উত্তরগুলো আমরা একটি Array-তে সেভ করছি 
+        const quizData = [
             {% for q in questions %}
-            "q{{ loop.index }}": "{{ q.ans }}"{% if not loop.last %},{% endif %}
+            {
+                id: "q{{ loop.index }}",
+                text: "{{ q.text }}",
+                correct: "{{ q.ans }}"
+            }{% if not loop.last %},{% endif %}
             {% endfor %}
-        };
+        ];
 
-        let timeLimit = {{ time_limit }} * 60; // সেকেন্ডে কনভার্ট করা হলো
+        let timeLimit = {{ time_limit }} * 60; 
         let timerDisplay = document.getElementById('time');
         
         let timerInterval = setInterval(function() {
@@ -64,19 +77,42 @@
         function submitExam() {
             clearInterval(timerInterval);
             let score = 0;
-            let total = Object.keys(answers).length;
+            let total = quizData.length;
+            let reviewHTML = ""; // বিস্তারিত রেজাল্ট জেনারেট করার জন্য
 
-            for (let key in answers) {
-                let selected = document.querySelector(`input[name="${key}"]:checked`);
-                // চেক করা হচ্ছে ইউজারের উত্তর ডাটাবেসের উত্তরের সাথে মিলছে কিনা
-                if (selected && selected.value === answers[key]) {
+            // প্রতিটি প্রশ্নের উত্তর চেক করা হচ্ছে
+            quizData.forEach((q, index) => {
+                let selected = document.querySelector(`input[name="${q.id}"]:checked`);
+                let userAnswer = selected ? selected.value : null;
+
+                reviewHTML += `<div class="review-box">`;
+                reviewHTML += `<p style="margin-top:0; color: #333;"><strong>${index + 1}. ${q.text}</strong></p>`;
+
+                if (userAnswer === q.correct) {
+                    // উত্তর সঠিক হলে ১ মার্ক যোগ হবে
                     score++;
+                    reviewHTML += `<p style="color: green; margin-bottom: 0;"><strong>✔ আপনার উত্তর:</strong> ${userAnswer} (সঠিক)</p>`;
+                } else if (userAnswer === null) {
+                    // কোনো উত্তর না দিলে
+                    reviewHTML += `<p style="color: #e67e22; margin-bottom: 5px;"><strong>⚠ স্ট্যাটাস:</strong> Not attempted (উত্তর দেওয়া হয়নি)</p>`;
+                    reviewHTML += `<p style="color: green; margin-bottom: 0;"><strong>সঠিক উত্তর:</strong> ${q.correct}</p>`;
+                } else {
+                    // উত্তর ভুল হলে
+                    reviewHTML += `<p style="color: red; margin-bottom: 5px;"><strong>✘ আপনার উত্তর:</strong> ${userAnswer} (ভুল)</p>`;
+                    reviewHTML += `<p style="color: green; margin-bottom: 0;"><strong>সঠিক উত্তর:</strong> ${q.correct}</p>`;
                 }
-            }
+                
+                reviewHTML += `</div>`;
+            });
 
+            // এক্সাম পেজ লুকিয়ে রেজাল্ট পেজ দেখানো
             document.getElementById('exam-section').style.display = 'none';
             document.getElementById('result-section').style.display = 'block';
+            
+            // প্রাপ্ত নম্বর এবং বিস্তারিত রেজাল্ট HTML-এ বসিয়ে দেওয়া
             document.getElementById('scoreText').innerText = `আপনার প্রাপ্ত নম্বর: ${score} / ${total}`;
+            document.getElementById('review-section').innerHTML = reviewHTML;
+            window.scrollTo(0, 0); // রেজাল্ট আসার পর পেজের একদম উপরে নিয়ে যাবে
         }
     </script>
 </body>
