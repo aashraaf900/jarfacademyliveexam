@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Exam running...</title>
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Hind Siliguri', sans-serif; background-color: #f0f4f8; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 700px; margin: auto; }
+        
+        /* Modern Timer */
+        .timer-wrapper { position: sticky; top: 10px; z-index: 100; text-align: center; margin-bottom: 30px; }
+        #timer { display: inline-block; background: #ff4757; color: white; padding: 10px 25px; border-radius: 30px; font-size: 20px; font-weight: bold; box-shadow: 0 4px 10px rgba(255, 71, 87, 0.3); }
+        
+        /* Question Cards */
+        .question-card { background: white; padding: 25px; margin-bottom: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.04); border-left: 5px solid #007bff; }
+        .question-title { font-size: 18px; font-weight: 600; color: #2c3e50; margin-top: 0; margin-bottom: 15px; }
+        
+        /* Interactive Options */
+        .option-label { display: block; padding: 12px 15px; margin-bottom: 10px; background: #f8f9fa; border: 2px solid #e9ecef; border-radius: 8px; cursor: pointer; transition: all 0.2s ease; font-size: 16px; }
+        .option-label:hover { background: #e3f2fd; border-color: #90caf9; }
+        .option-label input[type="radio"] { margin-right: 10px; transform: scale(1.2); accent-color: #007bff; }
+        
+        /* Buttons & Results */
+        .btn-submit { background: #007bff; color: white; padding: 15px; width: 100%; border: none; font-size: 18px; font-weight: bold; border-radius: 8px; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 15px rgba(0,123,255,0.3); margin-bottom: 40px;}
+        .btn-submit:hover { background: #0056b3; transform: translateY(-2px); }
+        
+        .result-box { background: white; padding: 30px; border-radius: 15px; text-align: center; box-shadow: 0 5px 20px rgba(0,0,0,0.05); margin-bottom: 30px; }
+        .review-box { background: white; border: 1px solid #e0e0e0; padding: 20px; margin-bottom: 15px; border-radius: 10px; text-align: left; }
+        .btn-home { background: #2c3e50; color: white; padding: 12px 25px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block; transition: 0.3s; }
+        .btn-home:hover { background: #1a252f; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="exam-section">
+        <div class="timer-wrapper">
+            <div id="timer">সময় বাকি: <span id="time">{{ time_limit }}:00</span></div>
+        </div>
+
+        <form id="quizForm">
+            {% for q in questions %}
+            <div class="question-card">
+                <p class="question-title">{{ loop.index }}. {{ q.text }}</p>
+                <label class="option-label"><input type="radio" name="q{{ loop.index }}" value="{{ q.opt_a }}"> {{ q.opt_a }}</label>
+                <label class="option-label"><input type="radio" name="q{{ loop.index }}" value="{{ q.opt_b }}"> {{ q.opt_b }}</label>
+                <label class="option-label"><input type="radio" name="q{{ loop.index }}" value="{{ q.opt_c }}"> {{ q.opt_c }}</label>
+                <label class="option-label"><input type="radio" name="q{{ loop.index }}" value="{{ q.opt_d }}"> {{ q.opt_d }}</label>
+            </div>
+            {% endfor %}
+            <button type="button" class="btn-submit" onclick="submitExam()">খাতা জমা দিন</button>
+        </form>
+    </div>
+
+    <div id="result-section" style="display:none;">
+        <div class="result-box">
+            <h2 style="color: #27ae60; margin-top: 0;">আলহামদুলিল্লাহ, পরীক্ষা শেষ!</h2>
+            <h3 id="scoreText" style="font-size: 26px; color: #007bff; margin-bottom: 0;"></h3>
+        </div>
+        
+        <h3 style="color: #2c3e50; border-bottom: 2px solid #e0e0e0; padding-bottom: 10px;">প্রশ্নের বিস্তারিত ফলাফল:</h3>
+        <div id="review-section"></div>
+        
+        <div style="text-align: center; margin-top: 30px; margin-bottom: 50px;">
+            <a href="/user_dash" class="btn-home">ড্যাশবোর্ডে ফিরে যান</a>
+        </div>
+    </div>
+</div>
+
+<script>
+    const quizData = [
+        {% for q in questions %}
+        { id: "q{{ loop.index }}", text: "{{ q.text }}", correct: "{{ q.ans }}" }{% if not loop.last %},{% endif %}
+        {% endfor %}
+    ];
+
+    let timeLimit = {{ time_limit }} * 60; 
+    let timerDisplay = document.getElementById('time');
+    
+    let timerInterval = setInterval(function() {
+        let min = Math.floor(timeLimit / 60);
+        let sec = timeLimit % 60;
+        sec = sec < 10 ? '0' + sec : sec;
+        timerDisplay.textContent = min + ":" + sec;
+
+        if (--timeLimit < 0) {
+            clearInterval(timerInterval);
+            alert("সময় শেষ! স্বয়ংক্রিয়ভাবে খাতা জমা নেওয়া হচ্ছে।");
+            submitExam();
+        }
+    }, 1000);
+
+    function submitExam() {
+        clearInterval(timerInterval);
+        let score = 0; let total = quizData.length; let reviewHTML = "";
+
+        quizData.forEach((q, index) => {
+            let selected = document.querySelector(`input[name="${q.id}"]:checked`);
+            let userAnswer = selected ? selected.value : null;
+
+            reviewHTML += `<div class="review-box">`;
+            reviewHTML += `<p style="margin-top:0; font-size: 18px; color: #2c3e50;"><strong>${index + 1}. ${q.text}</strong></p>`;
+
+            if (userAnswer === q.correct) {
+                score++;
+                reviewHTML += `<p style="color: #27ae60; margin-bottom: 0; font-size: 16px;"><strong>✔ আপনার উত্তর:</strong> ${userAnswer} (সঠিক)</p>`;
+            } else if (userAnswer === null) {
+                reviewHTML += `<p style="color: #e67e22; margin-bottom: 8px; font-size: 16px;"><strong>⚠ স্ট্যাটাস:</strong> Not attempted (উত্তর দেওয়া হয়নি)</p>`;
+                reviewHTML += `<p style="color: #27ae60; margin-bottom: 0; font-size: 16px;"><strong>সঠিক উত্তর:</strong> ${q.correct}</p>`;
+            } else {
+                reviewHTML += `<p style="color: #e74c3c; margin-bottom: 8px; font-size: 16px;"><strong>✘ আপনার উত্তর:</strong> ${userAnswer} (ভুল)</p>`;
+                reviewHTML += `<p style="color: #27ae60; margin-bottom: 0; font-size: 16px;"><strong>সঠিক উত্তর:</strong> ${q.correct}</p>`;
+            }
+            reviewHTML += `</div>`;
+        });
+
+        document.getElementById('exam-section').style.display = 'none';
+        document.getElementById('result-section').style.display = 'block';
+        document.getElementById('scoreText').innerText = `আপনার প্রাপ্ত নম্বর: ${score} / ${total}`;
+        document.getElementById('review-section').innerHTML = reviewHTML;
+        window.scrollTo(0, 0); 
+    }
+</script>
+</body>
+</html>
